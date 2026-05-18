@@ -25,7 +25,7 @@ import {
   serverTimestamp,
   doc,
   deleteDoc,
-  getDocs,
+  getDocs,updateDoc,
 } from "firebase/firestore";
 import { onAuthStateChanged, signInAnonymously } from "firebase/auth";
 import { db, auth } from "./firebase";
@@ -203,18 +203,24 @@ function HistoricoScreen({
       [data]: !prev[data],
     }));
   }
+async function editarRefeicao(item: Registro) {
+  try {
+    await updateDoc(doc(db, "meals", item.id), {
+      nome: item.nome + " (editado)",
+    });
 
+    Alert.alert("Sucesso", "Refeição editada.");
+  } catch (error) {
+    Alert.alert("Erro", "Não foi possível editar.");
+  }
+}
   function gerenciarRefeicao(item: Registro) {
     Alert.alert("O que deseja fazer?", `Refeição: ${item.nome}`, [
       { text: "Cancelar", style: "cancel" },
       {
-        text: "Editar",
-        onPress: () =>
-          Alert.alert(
-            "Aviso",
-            "Funcionalidade de edição em desenvolvimento pelo outro desenvolvedor.",
-          ),
-      },
+  text: "Editar",
+  onPress: () => editarRefeicao(item),
+},
       {
         text: "Apagar Refeição",
         style: "destructive",
