@@ -30,6 +30,7 @@ import {
 } from "firebase/firestore";
 import { onAuthStateChanged, signInAnonymously } from "firebase/auth";
 import { db, auth } from "./firebase";
+import { GEMINI_API_KEY } from "./geminiapi";
 
 type AlertButton = {
   text: string;
@@ -100,6 +101,66 @@ function CadastroScreen({ userId }: { userId: string }) {
   const [calorias, setCalorias] = useState("");
   const [data, setData] = useState(dataHoje());
   const [salvando, setSalvando] = useState(false);
+  const [estimando, setEstimando] = useState(false);
+  const [erroIA, setErroIA] = useState(false);
+
+  async function estimarCalorias(textoRefeicao: string) {
+    if (!textoRefeicao.trim() || calorias.trim() !== "") return;
+
+    setEstimando(true);
+    setErroIA(false);
+
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: `Atue como um nutricionista experiente focado em contagem de calorias. Estime a quantidade de calorias para a seguinte refeição: "${textoRefeicao}". Responda APENAS com o número inteiro de calorias estimadas, absolutamente nenhum texto extra, letra, pontuação ou explicações. Exemplo de resposta esperada caso dê 350 calorias: 350`,
+                },
+              ],
+            },
+          ],
+        }),
+      });
+
+      const resultado = await response.json();
+
+      if (resultado.error) {
+        setErroIA(true);
+        return;
+      }
+
+      const respostaTexto =
+        resultado?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+      if (respostaTexto) {
+        const textoLimpo = respostaTexto.trim();
+        const correspondencia = textoLimpo.match(/\d+/);
+        const apenasNumeros = correspondencia ? correspondencia[0] : "";
+
+        if (apenasNumeros) {
+          setCalorias(apenasNumeros);
+          setErroIA(false);
+        } else {
+          setErroIA(true);
+        }
+      } else {
+        setErroIA(true);
+      }
+    } catch (error) {
+      setErroIA(true);
+    } finally {
+      setEstimando(false);
+    }
+  }
 
   async function salvar() {
     const kcal = Number(calorias);
@@ -136,27 +197,73 @@ function CadastroScreen({ userId }: { userId: string }) {
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.tela} contentContainerStyle={styles.conteudo}>
         <Text style={styles.titulo}>Cadastrar</Text>
+
         <Text style={styles.label}>Alimento / refeição</Text>
         <TextInput
           style={styles.input}
           value={nome}
           onChangeText={setNome}
+          onBlur={() => estimarCalorias(nome)}
           placeholder="Ex.: Arroz com frango"
         />
-        <Text style={styles.label}>Calorias (kcal)</Text>
+
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            marginBottom: 6,
+          }}
+        >
+          <Text style={[styles.label, { marginBottom: 0 }]}>
+            Calorias (kcal)
+          </Text>
+
+          {estimando && (
+            <ActivityIndicator
+              size="small"
+              color="#166534"
+              style={{ marginLeft: 8 }}
+            />
+          )}
+
+          {erroIA && !estimando && (
+            <Text
+              style={{
+                marginLeft: 8,
+                fontSize: 12,
+                color: "#b91c1c",
+                fontWeight: "500",
+              }}
+            >
+              - Não foi possível gerar, preencha sozinho
+            </Text>
+          )}
+        </View>
+
         <TextInput
           style={styles.input}
           value={calorias}
-          onChangeText={setCalorias}
-          placeholder="Ex.: 450"
+          onChangeText={(txt) => {
+            setCalorias(txt);
+            if (erroIA) setErroIA(false);
+          }}
+          placeholder={estimando ? "IA calculando..." : "Ex.: 450"}
           keyboardType="numeric"
+          editable={!estimando}
         />
+
         <Text style={styles.label}>Data (AAAA-MM-DD)</Text>
         <TextInput style={styles.input} value={data} onChangeText={setData} />
+
         <Text style={styles.horaPreview}>
           Horário do cadastro: {horaAgora()}
         </Text>
-        <Pressable style={styles.botao} onPress={salvar} disabled={salvando}>
+
+        <Pressable
+          style={styles.botao}
+          onPress={salvar}
+          disabled={salvando || estimando}
+        >
           {salvando ? (
             <ActivityIndicator color="#fff" />
           ) : (
