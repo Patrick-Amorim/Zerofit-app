@@ -156,6 +156,10 @@ function HistoricoScreen({
   userId: string;
   navigation: any;
 }) {
+  const [editando, setEditando] = useState<Registro | null>(null);
+const [editNome, setEditNome] = useState("");
+const [editCalorias, setEditCalorias] = useState("");
+const [editData, setEditData] = useState("");
   const [lista, setLista] = useState<Registro[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [diasExpandidos, setDiasExpandidos] = useState<Record<string, boolean>>(
@@ -203,16 +207,31 @@ function HistoricoScreen({
       [data]: !prev[data],
     }));
   }
-async function editarRefeicao(item: Registro) {
+  //Inicio Editar
+function editarRefeicao(item: Registro) {
+  setEditando(item);
+
+  setEditNome(item.nome);
+  setEditCalorias(String(item.calorias));
+  setEditData(item.data);
+}
+async function salvarEdicao() {
+  if (!editando) return;
+
   try {
-    await updateDoc(doc(db, "meals", item.id), {
-     nome: item.nome.replaceAll(" (editado)", ""),
+    await updateDoc(doc(db, "meals", editando.id), {
+      nome: editNome.trim(),
+      calorias: Number(editCalorias),
+      data: editData,
     });
 
-    Alert.alert("Sucesso", "Refeição editada.");
+    Alert.alert("Sucesso", "Refeição atualizada.");
+
+    setEditando(null);
   } catch (error) {
-    Alert.alert("Erro", "Não foi possível editar.");
+    Alert.alert("Erro", "Não foi possível atualizar.");
   }
+    //Fim editar
 }
   function gerenciarRefeicao(item: Registro) {
     Alert.alert("O que deseja fazer?", `Refeição: ${item.nome}`, [
@@ -220,6 +239,7 @@ async function editarRefeicao(item: Registro) {
       {
   text: "Editar",
   onPress: () => editarRefeicao(item),
+
 },
       {
         text: "Apagar Refeição",
@@ -389,6 +409,48 @@ async function editarRefeicao(item: Registro) {
             );
           })
         )}
+
+{editando && (
+  <View style={styles.modalEdicao}>
+    <View style={styles.caixaEdicao}>
+      <Text style={styles.titulo}>Modificar refeição</Text>
+
+      <Text style={styles.labell}>Nome</Text>
+      <TextInput
+        style={styles.input}
+        value={editNome}
+        onChangeText={setEditNome}
+      />
+
+      <Text style={styles.labell}>Calorias</Text>
+      <TextInput
+        style={styles.input}
+        value={editCalorias}
+        onChangeText={setEditCalorias}
+        keyboardType="numeric"
+      />
+
+      <Text style={styles.labell}>Data</Text>
+      <TextInput
+        style={styles.input}
+        value={editData}
+        onChangeText={setEditData}
+      />
+
+      <Pressable style={styles.botaoAlteraçoes} onPress={salvarEdicao}>
+        <Text style={styles.botaoAlteraçoestext}>Salvar alterações</Text>
+      </Pressable>
+
+      <Pressable onPress={() => setEditando(null)}>
+        <Text style={{ textAlign: "center", marginTop: 12 }}>
+          Cancelar
+        </Text>
+      </Pressable>
+    </View>
+  </View>
+  //Fim edição
+)}
+
       </ScrollView>
     </SafeAreaView>
   );
@@ -553,4 +615,42 @@ const styles = StyleSheet.create({
   listaRefeicoes: {
     marginTop: 4,
   },
+
+  //edição
+  modalEdicao: {
+  position: "absolute",
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  backgroundColor: "rgba(0,0,0,0.5)",
+  justifyContent: "center",
+  padding: 20,
+},
+
+caixaEdicao: {
+  backgroundColor: "#fff",
+  borderRadius: 16,
+  padding: 20,
+},
+
+labell: {
+  fontWeight: "600",
+  marginTop: 12,
+  marginBottom: 6,
+},
+
+botaoAlteraçoes: {
+  backgroundColor: "#8B5CF6",
+  padding: 14,
+  borderRadius: 12,
+  marginTop: 20,
+},
+
+botaoAlteraçoestext: {
+  color: "#fff",
+  textAlign: "center",
+  fontWeight: "700",
+},
+  
 });
