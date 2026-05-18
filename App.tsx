@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
+  Modal,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -25,10 +25,34 @@ import {
   serverTimestamp,
   doc,
   deleteDoc,
-  getDocs,updateDoc,
+  getDocs,
+  updateDoc,
 } from "firebase/firestore";
 import { onAuthStateChanged, signInAnonymously } from "firebase/auth";
 import { db, auth } from "./firebase";
+
+type AlertButton = {
+  text: string;
+  style?: "cancel" | "destructive" | "default";
+  onPress?: () => void | Promise<void>;
+};
+
+type AlertState = {
+  visible: boolean;
+  title: string;
+  message?: string;
+  buttons?: AlertButton[];
+};
+
+let triggerAlert: (
+  title: string,
+  message?: any,
+  buttons?: any,
+) => void = () => {};
+
+export const customAlert = (title: string, message?: any, buttons?: any) => {
+  triggerAlert(title, message, buttons);
+};
 
 type Registro = {
   id: string;
@@ -80,14 +104,13 @@ function CadastroScreen({ userId }: { userId: string }) {
   async function salvar() {
     const kcal = Number(calorias);
     if (!nome.trim()) {
-      Alert.alert("Preencha o nome");
+      customAlert("Preencha o nome");
       return;
     }
     if (!kcal || kcal <= 0) {
-      Alert.alert("Calorias inválidas");
+      customAlert("Calorias inválidas");
       return;
     }
-
     setSalvando(true);
     try {
       await addDoc(collection(db, "meals"), {
@@ -101,9 +124,9 @@ function CadastroScreen({ userId }: { userId: string }) {
       setNome("");
       setCalorias("");
       setData(dataHoje());
-      Alert.alert("Salvo!");
+      customAlert("Salvo!");
     } catch (error) {
-      Alert.alert("Erro", "Não foi possível salvar no Firebase.");
+      customAlert("Erro", "Não foi possível salvar no Firebase.");
     } finally {
       setSalvando(false);
     }
@@ -113,7 +136,6 @@ function CadastroScreen({ userId }: { userId: string }) {
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.tela} contentContainerStyle={styles.conteudo}>
         <Text style={styles.titulo}>Cadastrar</Text>
-
         <Text style={styles.label}>Alimento / refeição</Text>
         <TextInput
           style={styles.input}
@@ -121,7 +143,6 @@ function CadastroScreen({ userId }: { userId: string }) {
           onChangeText={setNome}
           placeholder="Ex.: Arroz com frango"
         />
-
         <Text style={styles.label}>Calorias (kcal)</Text>
         <TextInput
           style={styles.input}
@@ -130,13 +151,11 @@ function CadastroScreen({ userId }: { userId: string }) {
           placeholder="Ex.: 450"
           keyboardType="numeric"
         />
-
         <Text style={styles.label}>Data (AAAA-MM-DD)</Text>
         <TextInput style={styles.input} value={data} onChangeText={setData} />
         <Text style={styles.horaPreview}>
           Horário do cadastro: {horaAgora()}
         </Text>
-
         <Pressable style={styles.botao} onPress={salvar} disabled={salvando}>
           {salvando ? (
             <ActivityIndicator color="#fff" />
@@ -157,9 +176,9 @@ function HistoricoScreen({
   navigation: any;
 }) {
   const [editando, setEditando] = useState<Registro | null>(null);
-const [editNome, setEditNome] = useState("");
-const [editCalorias, setEditCalorias] = useState("");
-const [editData, setEditData] = useState("");
+  const [editNome, setEditNome] = useState("");
+  const [editCalorias, setEditCalorias] = useState("");
+  const [editData, setEditData] = useState("");
   const [lista, setLista] = useState<Registro[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [diasExpandidos, setDiasExpandidos] = useState<Record<string, boolean>>(
@@ -188,7 +207,6 @@ const [editData, setEditData] = useState("");
       });
       setLista(itens);
       setCarregando(false);
-
       setDiasExpandidos((prev) => {
         const novoEstado = { ...prev };
         itens.forEach((item) => {
@@ -207,40 +225,36 @@ const [editData, setEditData] = useState("");
       [data]: !prev[data],
     }));
   }
-  //Inicio Editar
-function editarRefeicao(item: Registro) {
-  setEditando(item);
 
-  setEditNome(item.nome);
-  setEditCalorias(String(item.calorias));
-  setEditData(item.data);
-}
-async function salvarEdicao() {
-  if (!editando) return;
-
-  try {
-    await updateDoc(doc(db, "meals", editando.id), {
-      nome: editNome.trim(),
-      calorias: Number(editCalorias),
-      data: editData,
-    });
-
-    Alert.alert("Sucesso", "Refeição atualizada.");
-
-    setEditando(null);
-  } catch (error) {
-    Alert.alert("Erro", "Não foi possível atualizar.");
+  function editarRefeicao(item: Registro) {
+    setEditando(item);
+    setEditNome(item.nome);
+    setEditCalorias(String(item.calorias));
+    setEditData(item.data);
   }
-    //Fim editar
-}
+
+  async function salvarEdicao() {
+    if (!editando) return;
+    try {
+      await updateDoc(doc(db, "meals", editando.id), {
+        nome: editNome.trim(),
+        calorias: Number(editCalorias),
+        data: editData,
+      });
+      customAlert("Sucesso", "Refeição atualizada.");
+      setEditando(null);
+    } catch (error) {
+      customAlert("Erro", "Não foi possível atualizar.");
+    }
+  }
+
   function gerenciarRefeicao(item: Registro) {
-    Alert.alert("O que deseja fazer?", `Refeição: ${item.nome}`, [
+    customAlert("O que deseja fazer?", `Refeição: ${item.nome}`, [
       { text: "Cancelar", style: "cancel" },
       {
-  text: "Editar",
-  onPress: () => editarRefeicao(item),
-
-},
+        text: "Editar",
+        onPress: () => editarRefeicao(item),
+      },
       {
         text: "Apagar Refeição",
         style: "destructive",
@@ -248,7 +262,7 @@ async function salvarEdicao() {
           try {
             await deleteDoc(doc(db, "meals", item.id));
           } catch (error) {
-            Alert.alert("Erro", "Não foi possível apagar esta refeição.");
+            customAlert("Erro", "Não foi possível apagar esta refeição.");
           }
         },
       },
@@ -256,7 +270,7 @@ async function salvarEdicao() {
   }
 
   function deletarDiaInteiro(data: string, itensDoDia: Registro[]) {
-    Alert.alert(
+    customAlert(
       "Apagar este dia?",
       `Isso excluirá todas as ${itensDoDia.length} refeições registradas em ${formatarData(data)}.`,
       [
@@ -271,7 +285,7 @@ async function salvarEdicao() {
               );
               await Promise.all(promises);
             } catch (error) {
-              Alert.alert("Erro", "Não foi possível apagar os dados do dia.");
+              customAlert("Erro", "Não foi possível apagar os dados do dia.");
             }
           },
         },
@@ -280,7 +294,7 @@ async function salvarEdicao() {
   }
 
   async function deletarTodoOHistorico() {
-    Alert.alert(
+    customAlert(
       "Atenção!",
       "Tem certeza que deseja apagar TODO o seu histórico? Esta ação não pode ser desfeita.",
       [
@@ -299,9 +313,9 @@ async function salvarEdicao() {
                 deleteDoc(doc(db, "meals", documento.id)),
               );
               await Promise.all(promises);
-              Alert.alert("Sucesso", "Todo o seu histórico foi apagado.");
+              customAlert("Sucesso", "Todo o seu histórico foi apagado.");
             } catch (error) {
-              Alert.alert("Erro", "Não foi possível apagar os dados.");
+              customAlert("Erro", "Não foi possível apagar os dados.");
             }
           },
         },
@@ -314,6 +328,7 @@ async function salvarEdicao() {
     if (!porData[item.data]) porData[item.data] = [];
     porData[item.data].push(item);
   }
+
   const datas = Object.keys(porData).sort((a, b) => b.localeCompare(a));
 
   if (carregando) {
@@ -410,47 +425,42 @@ async function salvarEdicao() {
           })
         )}
 
-{editando && (
-  <View style={styles.modalEdicao}>
-    <View style={styles.caixaEdicao}>
-      <Text style={styles.titulo}>Modificar refeição</Text>
-
-      <Text style={styles.labell}>Nome</Text>
-      <TextInput
-        style={styles.input}
-        value={editNome}
-        onChangeText={setEditNome}
-      />
-
-      <Text style={styles.labell}>Calorias</Text>
-      <TextInput
-        style={styles.input}
-        value={editCalorias}
-        onChangeText={setEditCalorias}
-        keyboardType="numeric"
-      />
-
-      <Text style={styles.labell}>Data</Text>
-      <TextInput
-        style={styles.input}
-        value={editData}
-        onChangeText={setEditData}
-      />
-
-      <Pressable style={styles.botaoAlteraçoes} onPress={salvarEdicao}>
-        <Text style={styles.botaoAlteraçoestext}>Salvar alterações</Text>
-      </Pressable>
-
-      <Pressable onPress={() => setEditando(null)}>
-        <Text style={{ textAlign: "center", marginTop: 12 }}>
-          Cancelar
-        </Text>
-      </Pressable>
-    </View>
-  </View>
-  //Fim edição
-)}
-
+        <Modal visible={!!editando} transparent animationType="fade">
+          <View style={styles.modalEdicao}>
+            <View style={styles.caixaEdicao}>
+              <Text style={styles.titulo}>Modificar refeição</Text>
+              <Text style={styles.labell}>Nome</Text>
+              <TextInput
+                style={styles.input}
+                value={editNome}
+                onChangeText={setEditNome}
+              />
+              <Text style={styles.labell}>Calorias</Text>
+              <TextInput
+                style={styles.input}
+                value={editCalorias}
+                onChangeText={setEditCalorias}
+                keyboardType="numeric"
+              />
+              <Text style={styles.labell}>Data</Text>
+              <TextInput
+                style={styles.input}
+                value={editData}
+                onChangeText={setEditData}
+              />
+              <Pressable style={styles.botaoAlteraçoes} onPress={salvarEdicao}>
+                <Text style={styles.botaoAlteraçoestext}>
+                  Salvar alterações
+                </Text>
+              </Pressable>
+              <Pressable onPress={() => setEditando(null)}>
+                <Text style={{ textAlign: "center", marginTop: 12 }}>
+                  Cancelar
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
       </ScrollView>
     </SafeAreaView>
   );
@@ -459,6 +469,29 @@ async function salvarEdicao() {
 export default function App() {
   const [userId, setUserId] = useState<string | null>(null);
   const [autenticando, setAutenticando] = useState(true);
+
+  const [alertState, setAlertState] = useState<AlertState>({
+    visible: false,
+    title: "",
+  });
+
+  useEffect(() => {
+    triggerAlert = (title, message, buttons) => {
+      let msg: string | undefined = undefined;
+      let btns: AlertButton[] = [{ text: "OK" }];
+
+      if (typeof message === "string") {
+        msg = message;
+        if (buttons) btns = buttons;
+      } else if (Array.isArray(message)) {
+        btns = message;
+      } else if (typeof message === "undefined" && !buttons) {
+        btns = [{ text: "OK" }];
+      }
+
+      setAlertState({ visible: true, title, message: msg, buttons: btns });
+    };
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -470,7 +503,7 @@ export default function App() {
           const cred = await signInAnonymously(auth);
           setUserId(cred.user.uid);
         } catch (error) {
-          Alert.alert(
+          customAlert(
             "Erro de Autenticação",
             "Não foi possível iniciar uma sessão anônima.",
           );
@@ -479,7 +512,6 @@ export default function App() {
         }
       }
     });
-
     return unsubscribe;
   }, []);
 
@@ -504,7 +536,6 @@ export default function App() {
           tabBarInactiveTintColor: "#888",
           tabBarIcon: ({ focused, color, size }) => {
             let iconName: any;
-
             if (route.name === "Cadastro") {
               iconName = focused ? "restaurant" : "restaurant-outline";
             } else if (route.name === "Histórico") {
@@ -523,6 +554,44 @@ export default function App() {
           )}
         </Tab.Screen>
       </Tab.Navigator>
+
+      <Modal visible={alertState.visible} transparent animationType="fade">
+        <View style={styles.alertOverlay}>
+          <View style={styles.alertCaixa}>
+            <Text style={styles.alertTitulo}>{alertState.title}</Text>
+            {alertState.message ? (
+              <Text style={styles.alertMensagem}>{alertState.message}</Text>
+            ) : null}
+            <View style={styles.alertContainerBotoes}>
+              {alertState.buttons?.map((btn, idx) => (
+                <Pressable
+                  key={idx}
+                  style={[
+                    styles.alertBotao,
+                    btn.style === "cancel" && styles.alertBotaoCancelar,
+                    btn.style === "destructive" && styles.alertBotaoDeletar,
+                  ]}
+                  onPress={() => {
+                    setAlertState((prev) => ({ ...prev, visible: false }));
+                    if (btn.onPress) btn.onPress();
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.alertBotaoTexto,
+                      btn.style === "cancel" && styles.alertBotaoTextoCancelar,
+                      btn.style === "destructive" &&
+                        styles.alertBotaoTextoDeletar,
+                    ]}
+                  >
+                    {btn.text}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        </View>
+      </Modal>
     </NavigationContainer>
   );
 }
@@ -615,42 +684,99 @@ const styles = StyleSheet.create({
   listaRefeicoes: {
     marginTop: 4,
   },
-
-  //edição
   modalEdicao: {
-  position: "absolute",
-  top: 0,
-  left: 0,
-  right: 0,
-  bottom: 0,
-  backgroundColor: "rgba(0,0,0,0.5)",
-  justifyContent: "center",
-  padding: 20,
-},
-
-caixaEdicao: {
-  backgroundColor: "#fff",
-  borderRadius: 16,
-  padding: 20,
-},
-
-labell: {
-  fontWeight: "600",
-  marginTop: 12,
-  marginBottom: 6,
-},
-
-botaoAlteraçoes: {
-  backgroundColor: "#8B5CF6",
-  padding: 14,
-  borderRadius: 12,
-  marginTop: 20,
-},
-
-botaoAlteraçoestext: {
-  color: "#fff",
-  textAlign: "center",
-  fontWeight: "700",
-},
-  
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    padding: 20,
+  },
+  caixaEdicao: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 20,
+    borderColor: "#ddd",
+    borderWidth: 2,
+  },
+  labell: {
+    fontWeight: "600",
+    marginTop: 12,
+    marginBottom: 6,
+  },
+  botaoAlteraçoes: {
+    backgroundColor: "#166534",
+    padding: 14,
+    borderRadius: 8,
+    marginTop: 20,
+  },
+  botaoAlteraçoestext: {
+    color: "#fff",
+    textAlign: "center",
+    fontWeight: "700",
+  },
+  alertOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  alertCaixa: {
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    padding: 20,
+    width: "100%",
+    maxWidth: 320,
+    alignItems: "center",
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  alertTitulo: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#111",
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  alertMensagem: {
+    fontSize: 14,
+    color: "#555",
+    textAlign: "center",
+    marginBottom: 20,
+    lineHeight: 20,
+  },
+  alertContainerBotoes: {
+    width: "100%",
+    gap: 8,
+  },
+  alertBotao: {
+    backgroundColor: "#166534",
+    paddingVertical: 12,
+    borderRadius: 8,
+    width: "100%",
+    alignItems: "center",
+  },
+  alertBotaoCancelar: {
+    backgroundColor: "#e5e7eb",
+  },
+  alertBotaoDeletar: {
+    backgroundColor: "#fee2e2",
+  },
+  alertBotaoTexto: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  alertBotaoTextoCancelar: {
+    color: "#374151",
+  },
+  alertBotaoTextoDeletar: {
+    color: "#dc2626",
+  },
 });
