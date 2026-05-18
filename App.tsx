@@ -206,7 +206,7 @@ function HistoricoScreen({
 async function editarRefeicao(item: Registro) {
   try {
     await updateDoc(doc(db, "meals", item.id), {
-      nome: item.nome + " (editado)",
+     nome: item.nome.replaceAll(" (editado)", ""),
     });
 
     Alert.alert("Sucesso", "Refeição editada.");
